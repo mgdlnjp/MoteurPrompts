@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trouve — moteur de recherche de prompts</title>
+<style>
+  :root{
+    --bg:#f7f7f5; --card:#fff; --ink:#1d1d1f; --muted:#6b6b70; --line:#e4e4e0;
+    --accent:#3b5bdb; --accent-soft:#e8edff; --ok:#2b8a3e; --warn:#e67700;
+    --radius:14px; --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+  button,input,textarea,select{font:inherit;color:inherit}
+  a{color:var(--accent)}
+  header.top{display:flex;justify-content:space-between;align-items:center;padding:14px 24px}
+  .logo{font-weight:800;font-size:22px;letter-spacing:-.5px;cursor:pointer}
+  .logo span{color:var(--accent)}
+  .btn{border:1px solid var(--line);background:var(--card);padding:8px 14px;border-radius:10px;cursor:pointer;text-decoration:none;display:inline-block}
+  .btn:hover{border-color:#c9c9c4}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn.small{padding:5px 10px;font-size:13px}
+  .btn.danger{color:#c92a2a}
+
+  main{max-width:1100px;margin:0 auto;padding:0 24px 60px}
+  .hero{text-align:center;padding:12vh 0 24px}
+  body.searched .hero{padding:8px 0 16px}
+  .hero h1{font-size:46px;margin:0 0 6px;letter-spacing:-1.5px}
+  .hero h1 span{color:var(--accent)}
+  .hero p{color:var(--muted);margin:0 0 26px}
+  body.searched .hero h1, body.searched .hero p{display:none}
+
+  .searchbox{display:flex;gap:8px;max-width:760px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 6px 6px 20px;box-shadow:var(--shadow)}
+  .searchbox:focus-within{border-color:var(--accent)}
+  .searchbox input{flex:1;border:0;outline:0;background:transparent;font-size:17px;padding:8px 0;min-width:0}
+  .searchbox select{border:0;background:var(--bg);border-radius:999px;padding:0 10px;font-size:14px}
+  .searchbox .go{border-radius:999px;padding:10px 22px}
+  .examples{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+  .chip{display:inline-block;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer;color:var(--muted)}
+  .chip:hover{color:var(--ink);border-color:#c9c9c4}
+  body.searched .examples{display:none}
+
+  .layout{display:none;grid-template-columns:1fr 340px;gap:24px;margin-top:10px}
+  body.searched .layout{display:grid}
+  @media (max-width:900px){.layout{grid-template-columns:1fr}}
+
+  .meta{color:var(--muted);font-size:13px;margin:4px 0 12px}
+  .result{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .result .head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+  .result h3{margin:0;font-size:17px}
+  .result .cat{color:var(--muted);font-size:13px}
+  .result .desc{margin:6px 0 8px;font-size:14.5px}
+  .score{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-size:12px;font-weight:700;color:var(--ok);white-space:nowrap}
+  .bar{width:70px;height:5px;background:var(--line);border-radius:4px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--ok)}
+  .tags{display:flex;flex-wrap:wrap;gap:5px}
+  .tag{font-size:12px;background:var(--bg);border-radius:6px;padding:2px 7px;color:var(--muted)}
+  .tag.hit{background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .tag.syn{background:#fff4e6;color:var(--warn)}
+  pre.prompt{background:#16181d;color:#e6e6e6;border-radius:10px;padding:12px 14px;font-size:13px;white-space:pre-wrap;margin:10px 0;font-family:ui-monospace,Menlo,monospace;line-height:1.5;max-height:420px;overflow:auto}
+  pre.prompt mark{background:#3b5bdb55;color:#fff;border-radius:4px;padding:0 3px}
+  .vars{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin:8px 0}
+  .vars label{font-size:12px;color:var(--muted);display:block;margin-bottom:2px}
+  .vars input{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 9px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .empty{background:var(--card);border:1px dashed var(--line);border-radius:var(--radius);padding:30px;text-align:center;color:var(--muted)}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px;position:sticky;top:12px;align-self:start}
+  .panel h2{font-size:15px;margin:0 0 4px}
+  .panel .sub{font-size:12.5px;color:var(--muted);margin:0 0 12px}
+  .steps{list-style:none;margin:0;padding:0;counter-reset:s}
+  .steps li{position:relative;padding:0 0 14px 30px;border-left:2px solid var(--line);margin-left:10px}
+  .steps li:last-child{border-left-color:transparent;padding-bottom:0}
+  .steps li::before{counter-increment:s;content:counter(s);position:absolute;left:-11px;top:0;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
+  .steps .label{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+  .steps .val{font-size:13.5px;margin-top:3px;word-break:break-word}
+  .steps .val .tag{margin:2px 2px 0 0;display:inline-block}
+  .row{display:flex;gap:8px;align-items:center;justify-content:space-between}
+
+  dialog{border:0;border-radius:16px;padding:0;width:min(900px,94vw);box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  dialog::backdrop{background:rgba(0,0,0,.35)}
+  .dlg{padding:20px 22px}
+  .dlg h2{margin:0 0 4px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+  .field input,.field textarea,.field select{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff}
+  .field textarea{font-family:ui-monospace,Menlo,monospace;font-size:13px}
+  .field.full{grid-column:1/-1}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  td,th{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{font-size:12px;color:var(--muted);font-weight:600}
+  .tablewrap{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin:10px 0 16px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1d1d1f;color:#fff;padding:9px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="logo" onclick="resetHome()">Trou<span>ve</span></div>
+  <button class="btn" onclick="openManager()">Gérer les prompts (<span id="count">0</span>)</button>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>Trou<span>ve</span> le bon prompt</h1>
+    <p>Décris ce que tu veux faire — le moteur affiche les 6 prompts les plus adaptés, prêts à copier.</p>
+    <form class="searchbox" onsubmit="event.preventDefault();runSearch()">
+      <input id="q" autocomplete="off" placeholder="Ex. : écrire un mail pour relancer un client qui ne paie pas">
+      <select id="limit" title="Nombre de résultats">
+        <option value="5">5</option><option value="6" selected>6</option><option value="10">10</option>
+      </select>
+      <button class="btn primary go" type="submit">Rechercher</button>
+    </form>
+    <div class="examples" id="examples"></div>
+  </section>
+
+  <section class="layout">
+    <div>
+      <div class="meta" id="meta"></div>
+      <div id="results"></div>
+    </div>
+    <aside class="panel">
+      <h2>Comment ta demande a été comprise</h2>
+      <p class="sub">Les étapes de l'analyse, de ta phrase jusqu'au classement.</p>
+      <ol class="steps" id="steps"></ol>
+    </aside>
+  </section>
+</main>
+
+<dialog id="manager">
+  <div class="dlg">
+    <div class="row"><h2>Prompts répertoriés</h2><button class="btn small" onclick="manager.close()">Fermer</button></div>
+    <p style="color:var(--muted);font-size:13px;margin:4px 0 0">Stockés dans ton navigateur (localStorage), aucun serveur. Écris les parties à remplir entre crochets, ex. <code>[SUJET]</code> : elles deviendront des champs à compléter.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Titre</th><th>Catégorie</th><th>Tags</th><th></th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table></div>
+
+    <h3 style="margin:0 0 8px;font-size:15px" id="formTitle">Ajouter un prompt</h3>
+    <form id="form" class="grid2" onsubmit="event.preventDefault();savePrompt()">
+      <input type="hidden" id="f_id">
+      <div class="field"><label>Titre *</label><input id="f_title" required></div>
+      <div class="field"><label>Catégorie</label><input id="f_category" placeholder="ex. Rédaction"></div>
+      <div class="field full"><label>Description (à quoi il sert) *</label><input id="f_description" required></div>
+      <div class="field full"><label>Prompt *</label><textarea id="f_prompt" rows="6" required></textarea></div>
+      <div class="field full"><label>Tags (séparés par des virgules)</label><input id="f_tags" placeholder="mail, client, relance"></div>
+      <div class="field full row" style="justify-content:flex-start">
+        <button class="btn primary" type="submit">Enregistrer</button>
+        <button class="btn" type="button" onclick="clearForm()">Annuler</button>
+        <span style="flex:1"></span>
+        <label class="btn">Importer JSON<input type="file" accept=".json" hidden onchange="importJSON(this)"></label>
+        <button class="btn" type="button" onclick="exportJSON()">Exporter JSON</button>
+        <button class="btn danger" type="button" onclick="resetData()">Réinitialiser</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script src="prompts.js"></script>
+<script src="prompts-2.js"></script>
+<script src="prompts-3.js"></script>
+<script src="prompts-4.js"></script>
+<script src="prompts-5.js"></script>
+<script>
+/* =========================================================
+   2. STOCKAGE local (pas de serveur)
+   ========================================================= */
+const KEY = "trouve.prompts.v3";
+let items = load();
+function load(){
+  try{ const s = JSON.parse(localStorage.getItem(KEY)); if(Array.isArray(s) && s.length) return s.map(withId); }catch(e){}
+  return SAMPLE.map(withId);
+}
+function withId(a,i){ return {id:a.id || ("p"+Date.now().toString(36)+i+Math.random().toString(36).slice(2,6)), tags:[], ...a}; }
+function persist(){ localStorage.setItem(KEY, JSON.stringify(items)); buildIndex(); $("count").textContent = items.length; }
+
+/* =========================================================
+   3. TRAITEMENT DU LANGAGE
+   ========================================================= */
+const STOP = new Set(("a au aux avec ce ces cet cette dans de des du elle en et eux il ils je j la le les leur lui ma mais me meme mes moi mon ne nos notre nous on ou par pas pour qu que qui sa se ses son sur ta te tes toi ton tu un une vos votre vous c d l m n s t y est sont suis etre avoir ai as ont fait faire veux voudrais aimerais cherche recherche chercher trouver trouve besoin prompt prompts comment quoi quel quelle quels quelles bien tres plus moins peu beaucoup aussi sans sous chez vers comme si tout tous toute toutes the of and to for in on with i want how what my aide aider mieux bon bons bonne bonnes quelque quelqu chose truc mal").split(" "));
+
+const deaccent = s => s.normalize("NFD").replace(/[̀-ͯ]/g,"");
+const normalize = s => deaccent(String(s).toLowerCase()).replace(/[’']/g," ").replace(/[^a-z0-9+#\s-]/g," ").replace(/-/g," ").replace(/\s+/g," ").trim();
+const SUFFIXES = ["issements","issement","ations","ation","ements","ement","euses","euse","eurs","eur","trices","trice","iques","ique","ismes","isme","istes","iste","ites","ite","ables","able","ives","ive","ifs","if","ees","ee","es","er","e","s","x"];
+function stem(w){
+  if(w.length<=3) return w;
+  for(const suf of SUFFIXES) if(w.endsWith(suf) && w.length - suf.length >= 4) return w.slice(0,-suf.length);
+  return w;
+}
+const words = s => normalize(s).split(" ").filter(Boolean);
+const tokens = s => words(s).filter(w=>!STOP.has(w) && w.length>1).map(stem);
+
+const SYN_GROUPS = [
+ ["mail","email","courriel","message","ecrire","rediger","redaction","lettre"],
+ ["relance","relancer","impaye","paiement","facture","payer","paie"],
+ ["client","clients","prospect"],
+ ["resume","resumer","synthese","synthetiser","condenser","document","lire","lecture"],
+ ["reunion","compte","rendu","notes","meeting"],
+ ["organiser","organisation","planning","planifier","priorites","temps","productivite","semaine","agenda"],
+ ["apprendre","comprendre","expliquer","explication","cours","etudier","debutant","simple","simplement"],
+ ["reviser","revision","examen","bac","partiel","etudiant","quiz"],
+ ["langue","anglais","espagnol","allemand","parler","conversation"],
+ ["code","coder","programmation","programmer","developpeur","dev","script","python","javascript"],
+ ["bug","erreur","debug","debugger","marche","fonctionne","plante"],
+ ["site","web","page","html","landing","internet"],
+ ["excel","tableur","sheets","formule","tableau","calcul"],
+ ["linkedin","post","publication","publier","reseaux","sociaux"],
+ ["instagram","tiktok","reels","video","videos","contenu","contenus","abonnes"],
+ ["legende","caption","hashtag","hashtags"],
+ ["vendre","vente","produit","boutique","ecommerce","shop","fiche"],
+ ["marketing","cible","persona","clientele","audience"],
+ ["seo","referencement","blog","article","google"],
+ ["nom","marque","branding","logo","nommer"],
+ ["entreprise","startup","business","projet","lancer","creer","idee"],
+ ["freelance","independant","tarif","tarifs","prix","devis","facturer"],
+ ["emploi","job","travail","poste","candidature","recrutement","embauche"],
+ ["motivation","lettre","candidature"],
+ ["cv","curriculum","reconversion","profil"],
+ ["entretien","recruteur","simulation","entrainer"],
+ ["salaire","augmentation","negocier","negociation","remuneration"],
+ ["repas","menu","manger","cuisine","cuisiner","recette","recettes","courses","diner"],
+ ["frigo","reste","restes","ingredients","gaspi","gaspillage"],
+ ["sport","musculation","muscu","fitness","entrainement","exercice","forme","maigrir"],
+ ["stress","stresse","anxiete","angoisse","calme","relaxation","dormir","sommeil","zen"],
+ ["voyage","voyager","vacances","itineraire","destination","partir"],
+ ["enfant","enfants","histoire","conte","dormir","fils","fille"],
+ ["idee","idees","brainstorming","creativite","inspiration","trouver"],
+ ["image","illustration","dessin","midjourney","dalle","visuel","photo","generer"],
+ ["corriger","correction","orthographe","fautes","reformuler","relire","ameliorer"],
+ ["contrat","juridique","clause","clauses","signer","bail","loi"],
+ ["budget","argent","epargne","epargner","economiser","economies","depenses","finances"],
+ ["test","tests","unitaire","qualite","tdd"],
+ ["sql","requete","base","donnees","bdd","table","tables","database"],
+ ["regex","regulier","reguliere","motif","pattern"],
+ ["api","backend","serveur","endpoint","route","routes"],
+ ["git","github","commit","branche","merge"],
+ ["securite","faille","vulnerabilite","pirate","hack"],
+ ["lent","lenteur","performance","optimiser","rapide","accelerer"],
+ ["chatbot","assistant","agent","bot","systeme"],
+ ["youtube","youtubeur","chaine","miniature"],
+ ["pub","publicite","annonce","annonces","ads","campagne"],
+ ["concurrent","concurrents","concurrence","benchmark"],
+ ["slogan","accroche","baseline","tagline"],
+ ["avis","note","etoiles","commentaire","reputation"],
+ ["investisseur","investisseurs","levee","fonds","financement"],
+ ["devis","proposition","commerciale","offre"],
+ ["podcast","episode","interview","audio"],
+ ["dette","dettes","credit","emprunt","rembourser"],
+ ["impot","impots","fiscal","fiscalite","declaration","taxe"],
+ ["negocier","negociation","marchander","reduction"],
+ ["assurance","forfait","abonnement","mutuelle"],
+ ["dissertation","philo","philosophie","problematique"],
+ ["commentaire","litterature","francais","poesie","texte"],
+ ["math","maths","mathematiques","equation","probleme","calcul"],
+ ["livre","lecture","roman","bouquin"],
+ ["expose","oral","presentation","presenter","public"],
+ ["orientation","etudes","parcoursup","avenir","lycee"],
+ ["habitude","habitudes","routine","matin","discipline"],
+ ["meditation","respiration","pleine","conscience"],
+ ["couple","ami","amie","proche","famille","relation","dispute"],
+ ["cadeau","cadeaux","offrir","noel","anniversaire"],
+ ["fete","soiree","anniversaire","reception","evenement","organiser"],
+ ["demenagement","demenager","emmenager","cartons"],
+ ["ranger","rangement","desencombrer","trier","minimalisme"],
+ ["nouvelle","fiction","recit","ecriture","roman"],
+ ["poeme","chanson","paroles","rap","rime","rimes"],
+ ["personnage","heros","scenario","jdr"],
+ ["discours","toast","mariage","temoin"],
+ ["refuser","refus","non","decliner"],
+ ["presse","communique","journaliste","medias"],
+ ["traduire","traduction","traducteur"],
+ ["feedback","critique","retour","recadrer"],
+ ["conflit","tension","dispute","desaccord"],
+ ["decision","decider","choisir","hesiter","choix"],
+ ["objectif","objectifs","but","smart","resolution"],
+ ["recruter","recrutement","candidat","embaucher"],
+ ["reclamation","litige","plainte","remboursement","reclamer"],
+ ["dors","dort","dormi","endormir","reveil","reveille","nuit","nuits"],
+ ["reconversion","changer","changement","transition","reconvertir","quitter"],
+ ["voyage","japon","italie","espagne","portugal","grece","maroc","thailande","asie","europe","amerique","afrique","usa","canada","pays","sejour","roadtrip"],
+];
+const SYN = new Map();
+for(const g of SYN_GROUPS){
+  const st = g.map(w=>stem(normalize(w)));
+  for(const s of st){ if(!SYN.has(s)) SYN.set(s,new Set()); st.forEach(o=>o!==s && SYN.get(s).add(o)); }
+}
+
+/* =========================================================
+   4. INDEX BM25 pondéré par champ
+   ========================================================= */
+const FIELD_W = {title:2.5, tags:3, category:1.5, description:1.5, prompt:.15};
+let INDEX = [], AVGDL = 1, DF = new Map();
+function buildIndex(){
+  DF = new Map();
+  INDEX = items.map(a=>{
+    const tf = new Map(); let len = 0;
+    const add = (txt,w)=>tokens(txt).forEach(t=>{ tf.set(t,(tf.get(t)||0)+w); len+=w; });
+    add(a.title,FIELD_W.title); add((a.tags||[]).join(" "),FIELD_W.tags);
+    add(a.category||"",FIELD_W.category); add(a.description||"",FIELD_W.description);
+    add((a.prompt||"").replace(/\[[^\]]*\]/g," "),FIELD_W.prompt);
+    for(const t of tf.keys()) DF.set(t,(DF.get(t)||0)+1);
+    return {a,tf,len};
+  });
+  AVGDL = INDEX.reduce((s,d)=>s+d.len,0)/(INDEX.length||1);
+}
+const idf = t => { const n=DF.get(t)||0, N=INDEX.length; return Math.log(1 + (N-n+.5)/(n+.5)); };
+
+function analyze(raw){
+  const ws = words(raw);
+  const removed = ws.filter(w=>STOP.has(w) || w.length<=1);
+  const kw = [...new Set(tokens(raw))];
+  const terms = new Map(kw.map(t=>[t,1]));
+  kw.forEach(t=>(SYN.get(t)||[]).forEach(s=>{ if(!terms.has(s)) terms.set(s,.5); }));
+  return {raw,norm:normalize(raw),removed,kw,expanded:[...terms].filter(([,w])=>w<1).map(([t])=>t),terms};
+}
+
+function search(raw,limit){
+  const q = analyze(raw);
+  const k1=1.2,b=.75;
+  const scored = INDEX.map(d=>{
+    let s=0; const hits=new Set();
+    for(const [t,w] of q.terms){
+      let tf = d.tf.get(t)||0;
+      if(!tf && t.length>=4) for(const [dt,v] of d.tf) if(dt.length>=4 && (dt.startsWith(t)||t.startsWith(dt))) tf+=v*.5;
+      if(tf){ s += w*idf(t)*(tf*(k1+1))/(tf+k1*(1-b+b*d.len/AVGDL)); hits.add(t); }
+    }
+    return {a:d.a,score:s,hits};
+  }).filter(r=>r.score>0.05).sort((x,y)=>y.score-x.score);
+  const max = scored[0]?.score||1;
+  return {q,total:scored.length,results:scored.slice(0,limit).map(r=>({...r,pct:Math.round(100*r.score/max)}))};
+}
+
+/* =========================================================
+   5. RENDU
+   ========================================================= */
+function $(id){ return document.getElementById(id); }
+const esc = s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const varsOf = p=>[...new Set((p.match(/\[[^\]]+\]/g)||[]))];
+let current = [];
+
+function runSearch(){
+  const raw = $("q").value.trim();
+  if(!raw){ $("q").focus(); return; }
+  document.body.classList.add("searched");
+  history.replaceState(null,"","#q="+encodeURIComponent(raw));
+  const {q,total,results} = search(raw, +$("limit").value);
+  current = results;
+  $("meta").textContent = `${results.length} prompt(s) les plus adaptés — ${total} correspondance(s) parmi ${items.length} prompts`;
+  $("results").innerHTML = results.length ? results.map((r,i)=>{
+    const a=r.a, vars=varsOf(a.prompt);
+    const tagHtml=(a.tags||[]).map(t=>`<span class="tag ${tokens(t).some(x=>r.hits.has(x))?"hit":""}">${esc(t)}</span>`).join("");
+    return `<article class="result" data-i="${i}">
+      <div class="head">
+        <div><h3>${i+1}. ${esc(a.title)}</h3><div class="cat">${esc(a.category||"")}</div></div>
+        <div class="score">${r.pct}%<div class="bar"><i style="width:${r.pct}%"></i></div></div>
+      </div>
+      <p class="desc">${esc(a.description)}</p>
+      <div class="tags">${tagHtml}</div>
+      ${vars.length?`<div class="vars">${vars.map(v=>`<div><label>${esc(v.slice(1,-1))}</label><input data-var="${esc(v)}" placeholder="à compléter"></div>`).join("")}</div>`:""}
+      <pre class="prompt">${highlight(a.prompt,{})}</pre>
+      <div class="actions">
+        <button class="btn small primary" data-act="copy">Copier le prompt</button>
+        <a class="btn small" data-act="claude" href="#" target="_blank" rel="noopener">Ouvrir dans Claude →</a>
+      </div></article>`;
+  }).join("") : `<div class="empty">Aucun prompt ne correspond.<br>Reformule ta demande, ou ajoute un prompt dans « Gérer les prompts ».</div>`;
+  document.querySelectorAll(".result").forEach(updateCard);
+  renderSteps(q,results);
+}
+
+function highlight(p,vals){
+  return esc(p).replace(/\[[^\]]+\]/g,m=>{ const raw=m.replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"'); return vals[raw]?`<mark>${esc(vals[raw])}</mark>`:`<mark>${m}</mark>`; });
+}
+function filled(card){
+  const a=current[card.dataset.i].a, vals={};
+  card.querySelectorAll("input[data-var]").forEach(inp=>{ if(inp.value.trim()) vals[inp.dataset.var]=inp.value.trim(); });
+  return {vals,text:a.prompt.replace(/\[[^\]]+\]/g,m=>vals[m]??m)};
+}
+function updateCard(card){
+  const {vals,text}=filled(card);
+  card.querySelector("pre.prompt").innerHTML=highlight(current[card.dataset.i].a.prompt,vals);
+  card.querySelector("[data-act=claude]").href="https://claude.ai/new?q="+encodeURIComponent(text);
+}
+$("results").addEventListener("input",e=>{ const c=e.target.closest(".result"); if(c) updateCard(c); });
+$("results").addEventListener("click",e=>{
+  const btn=e.target.closest("[data-act=copy]"); if(!btn) return;
+  navigator.clipboard.writeText(filled(btn.closest(".result")).text).then(()=>toast("Prompt copié"));
+});
+
+function renderSteps(q,results){
+  const chips=(arr,cls="")=>arr.length?arr.map(x=>`<span class="tag ${cls}">${esc(x)}</span>`).join(""):"<em style='color:var(--muted)'>—</em>";
+  $("steps").innerHTML = [
+    ["Ta demande", esc(q.raw)],
+    ["Mots retirés", chips([...new Set(q.removed)])],
+    ["Mots-clés retenus", chips(q.kw,"hit")],
+    ["Synonymes ajoutés", chips(q.expanded,"syn")],
+    ["Classement", `${results.length} meilleur(s) prompt(s), selon les mots trouvés dans le titre, les tags et la description`],
+  ].map(([l,v])=>`<li><div class="label">${l}</div><div class="val">${v}</div></li>`).join("");
+}
+
+function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1600); }
+function resetHome(){ document.body.classList.remove("searched"); $("q").value=""; history.replaceState(null,"",location.pathname); $("q").focus(); }
+
+const EXAMPLES = ["Relancer un client qui ne paie pas","Résumer un long document","Préparer un entretien d'embauche","Trouver des idées de vidéos TikTok","Corriger un bug dans mon code","Faire un budget pour épargner","Une recette avec ce qu'il reste dans le frigo","Créer une image avec l'IA"];
+$("examples").innerHTML = EXAMPLES.map(e=>`<span class="chip">${esc(e)}</span>`).join("");
+$("examples").addEventListener("click",e=>{ if(e.target.classList.contains("chip")){ $("q").value=e.target.textContent; runSearch(); }});
+
+/* =========================================================
+   6. GESTION DES PROMPTS
+   ========================================================= */
+const manager = $("manager");
+function openManager(){ renderTable(); clearForm(); manager.showModal(); }
+function renderTable(){
+  $("tbody").innerHTML = items.map(a=>`<tr>
+    <td><strong>${esc(a.title)}</strong><br><span style="color:var(--muted)">${esc(a.description)}</span></td>
+    <td>${esc(a.category)}</td><td>${(a.tags||[]).map(esc).join(", ")}</td>
+    <td style="white-space:nowrap"><button class="btn small" onclick="editItem('${a.id}')">Modifier</button>
+    <button class="btn small danger" onclick="delItem('${a.id}')">Suppr.</button></td></tr>`).join("");
+}
+const F = ["title","category","description","prompt"];
+function clearForm(){ $("form").reset(); $("f_id").value=""; $("formTitle").textContent="Ajouter un prompt"; }
+function editItem(id){
+  const a=items.find(x=>x.id===id); if(!a) return;
+  F.forEach(k=>$("f_"+k).value=a[k]??""); $("f_tags").value=(a.tags||[]).join(", "); $("f_id").value=id;
+  $("formTitle").textContent="Modifier : "+a.title; $("f_title").focus();
+}
+function savePrompt(){
+  const obj={}; F.forEach(k=>obj[k]=$("f_"+k).value.trim());
+  obj.tags=$("f_tags").value.split(",").map(s=>s.trim()).filter(Boolean);
+  const id=$("f_id").value;
+  if(id){ const i=items.findIndex(x=>x.id===id); items[i]={...items[i],...obj}; }
+  else items.unshift(withId(obj,0));
+  persist(); renderTable(); clearForm(); toast("Prompt enregistré");
+  if(document.body.classList.contains("searched")) runSearch();
+}
+function delItem(id){ items=items.filter(a=>a.id!==id); persist(); renderTable(); }
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(items.map(({id,...r})=>r),null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="prompts.json"; a.click();
+}
+function importJSON(input){
+  const file=input.files[0]; if(!file) return;
+  file.text().then(t=>{
+    const data=JSON.parse(t); if(!Array.isArray(data)) throw new Error("le fichier doit contenir une liste de prompts");
+    const valid=data.filter(x=>x&&x.title&&x.prompt);
+    if(!valid.length) throw new Error("aucun prompt valide (title + prompt requis)");
+    items=valid.map(withId); persist(); renderTable(); toast(`${valid.length} prompts importés`);
+  }).catch(e=>toast("Import impossible : "+e.message)).finally(()=>input.value="");
+}
+function resetData(){ items=SAMPLE.map(withId); localStorage.removeItem(KEY); buildIndex(); $("count").textContent=items.length; renderTable(); toast("Exemples restaurés"); }
+
+/* Démarrage */
+buildIndex(); $("count").textContent=items.length;
+const initial = new URLSearchParams(location.hash.slice(1)).get("q");
+if(initial){ $("q").value=initial; runSearch(); } else $("q").focus();
+</script>
+</body>
+</html>
