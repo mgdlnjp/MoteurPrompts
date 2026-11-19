@@ -97,7 +97,48 @@
   .tablewrap{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin:10px 0 16px}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1d1d1f;color:#fff;padding:9px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
   .toast.show{opacity:1}
+
+/* Bannières publicitaires (Adsterra) : 160×600 sur les côtés quand il y a la place,
+   728×90 (ordinateur) ou 320×50 (téléphone) entre deux sections. */
+.ad-side { position: fixed; top: 110px; width: 160px; min-height: 600px; display: none; z-index: 1; }
+.ad-left  { right: calc(50% + 550px + 20px); }
+.ad-right { left:  calc(50% + 550px + 20px); }
+@media (min-width: 1460px) { .ad-side { display: block; } }
+.ad-banner { display: flex; justify-content: center; margin: 40px auto; min-height: 50px; }
+.ad-banner:empty { display: none; }
+.ad-ph { display: flex; align-items: center; justify-content: center; text-align: center;
+  border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 12px; }
 </style>
+<script>
+/* ===== Configuration Adsterra =====
+   Dans Adsterra, créez les emplacements puis collez la valeur 'key' de chacun :
+   - left / right : « Banner 160x600 » (affichées sur les écrans d'au moins 1460px)
+   - top          : « Banner 728x90 »  (ordinateur et tablette)
+   - mobile       : « Banner 320x50 »  (téléphone)
+   Le domaine (host) est celui du script invoke.js donné par Adsterra.
+   Tant qu'une clé est vide, l'emplacement n'apparaît qu'en local (aperçu). */
+const ADSTERRA = {
+  host:   "https://www.highperformanceformat.com",
+  left:   "",
+  right:  "",
+  top:    "",
+  mobile: "",
+};
+function adSlot(slot) {
+  const local = /^(localhost|127\.0\.0\.1|)$/.test(location.hostname);
+  if (slot === "banner") slot = window.innerWidth >= 760 ? "top" : "mobile";
+  const size = { left: [160, 600], right: [160, 600], top: [728, 90], mobile: [320, 50] }[slot];
+  if ((slot === "left" || slot === "right") && window.innerWidth < 1460) return;
+  const key = ADSTERRA[slot];
+  if (!key) {
+    if (!local && document.currentScript) document.currentScript.parentElement.style.display = "none";
+    if (local) document.write('<div class="ad-ph" style="width:' + size[0] + 'px;height:' + size[1] + 'px">Publicité ' + size[0] + ' × ' + size[1] + '</div>');
+    return;
+  }
+  window.atOptions = { key, format: "iframe", width: size[0], height: size[1], params: {} };
+  document.write('<script src="' + ADSTERRA.host + '/' + key + '/invoke.js"><\/script>');
+}
+</script>
     <link rel="icon" href="favicon.ico" sizes="32x32">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -105,6 +146,9 @@
     <meta name="theme-color" content="#3B5BDB">
 </head>
 <body>
+<aside class="ad-side ad-left" aria-label="Publicité"><script>adSlot("left")</script></aside>
+<aside class="ad-side ad-right" aria-label="Publicité"><script>adSlot("right")</script></aside>
+
 
 <header class="top">
   <div class="logo" onclick="resetHome()"><img src="logo.svg" alt="" width="30" height="30">Trou<span>ve</span></div>
@@ -136,6 +180,7 @@
       <ol class="steps" id="steps"></ol>
     </aside>
   </section>
+  <aside class="ad-banner" aria-label="Publicité"><script>adSlot("banner")</script></aside>
 </main>
 
 <dialog id="manager">
