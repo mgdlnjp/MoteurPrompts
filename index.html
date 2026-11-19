@@ -17,6 +17,8 @@
   header.top{display:flex;justify-content:space-between;align-items:center;padding:14px 24px}
   .logo{font-weight:800;font-size:22px;letter-spacing:-.5px;cursor:pointer}
   .logo span{color:var(--accent)}
+  .logo{display:flex;align-items:center}
+  .logo img{display:block;width:30px;height:30px;margin-right:8px}
   .btn{border:1px solid var(--line);background:var(--card);padding:8px 14px;border-radius:10px;cursor:pointer;text-decoration:none;display:inline-block}
   .btn:hover{border-color:#c9c9c4}
   .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -94,11 +96,16 @@
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1d1d1f;color:#fff;padding:9px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
   .toast.show{opacity:1}
 </style>
+    <link rel="icon" href="favicon.ico" sizes="32x32">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="manifest" href="site.webmanifest">
+    <meta name="theme-color" content="#3B5BDB">
 </head>
 <body>
 
 <header class="top">
-  <div class="logo" onclick="resetHome()">Trou<span>ve</span></div>
+  <div class="logo" onclick="resetHome()"><img src="logo.svg" alt="" width="30" height="30">Trou<span>ve</span></div>
   <button class="btn" onclick="openManager()">Gérer les prompts (<span id="count">0</span>)</button>
 </header>
 
